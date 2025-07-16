@@ -1,2 +1,83 @@
-script_key="jVxSrLuyDUGwIFYxUYaCttCCCQBHyNEX";
-loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/53325754de16c11fbf8bf78101c1c881.lua"))()
+--------------------------------------------------------------------
+-- Auto‑Equip, Double‑Click, Unequip “Invisibility Cloak”
+-- • Runs once as soon as the script executes (waiting for your
+--   character if it isn't loaded yet).
+-- • Runs again on every /reset or respawn.
+--------------------------------------------------------------------
+local Players = game:GetService("Players")
+local player  = Players.LocalPlayer
+
+-- CONFIG ----------------------------------------------------------
+local TOOL_NAME       = "Invisibility Cloak" -- exact name of the gear
+local CLICK_DELAY     = 0.2                  -- seconds between clicks
+local SEARCH_TIMEOUT  = 5                    -- max time to look for tool
+local UNEQUIP_DELAY   = 0.1                  -- wait after 2nd click
+
+--------------------------------------------------------------------
+-- Helper: wait until tool appears (Backpack or Character)
+--------------------------------------------------------------------
+local function waitForTool(char)
+    local backpack = player:WaitForChild("Backpack")
+    local deadline = time() + SEARCH_TIMEOUT
+    while time() < deadline do
+        local tool = char:FindFirstChild(TOOL_NAME) or backpack:FindFirstChild(TOOL_NAME)
+        if tool then return tool end
+        task.wait(0.1)
+    end
+    return nil
+end
+
+--------------------------------------------------------------------
+-- Core routine for a character
+--------------------------------------------------------------------
+local function handleCharacter(char)
+    local tool = waitForTool(char)
+    if not tool then
+        warn(("[%s] not found after %ds."):format(TOOL_NAME, SEARCH_TIMEOUT))
+        return
+    end
+
+    -- Equip
+    local humanoid = char:WaitForChild("Humanoid", 2)
+    if humanoid then
+        humanoid:EquipTool(tool)
+    else
+        tool.Parent = char
+    end
+    task.wait(0.1)
+
+    -- Double‑click
+    tool:Activate()
+    task.wait(CLICK_DELAY)
+    tool:Activate()
+
+    -- Unequip
+    task.wait(UNEQUIP_DELAY)
+    if humanoid then
+        humanoid:UnequipTools()
+    else
+        tool.Parent = player.Backpack
+    end
+end
+
+--------------------------------------------------------------------
+-- Ensure the routine runs:
+--   • immediately on script execution
+--   • every time CharacterAdded fires
+--------------------------------------------------------------------
+local function runNowOrLater()
+    local char = player.Character
+    if char then
+        task.defer(handleCharacter, char)
+    else
+        -- Wait for the first character to load, then handle it once.
+        player.CharacterAdded:Wait()
+        task.defer(handleCharacter, player.Character)
+    end
+end
+
+-- Run once right now
+runNowOrLater()
+
+-- And on every future respawn
+player.CharacterAdded:Connect(handleCharacter)
