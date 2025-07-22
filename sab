@@ -1,9 +1,3 @@
---------------------------------------------------------------------
--- Auto‑Equip, Double‑Click, Unequip “Invisibility Cloak”
--- • Runs once as soon as the script executes (waiting for your
---   character if it isn't loaded yet).
--- • Runs again on every /reset or respawn.
---------------------------------------------------------------------
 local Players = game:GetService("Players")
 local player  = Players.LocalPlayer
 
@@ -11,7 +5,7 @@ local player  = Players.LocalPlayer
 local TOOL_NAME       = "Invisibility Cloak" -- exact name of the gear
 local CLICK_DELAY     = 0.2                  -- seconds between clicks
 local SEARCH_TIMEOUT  = 5                    -- max time to look for tool
-local UNEQUIP_DELAY   = 0.1                  -- wait after 2nd click
+local UNEQUIP_DELAY   = 0.2                  -- wait after 2nd click
 
 --------------------------------------------------------------------
 -- Helper: wait until tool appears (Backpack or Character)
@@ -42,31 +36,27 @@ local function handleCharacter(char)
         -- Equip tool
         humanoid:EquipTool(tool)
 
-        -- Wait until tool is truly equipped
-        local equippedTool
-        for _ = 1, 20 do
-            equippedTool = humanoid:FindFirstChildOfClass("Tool")
-            if equippedTool == tool then break end
-            task.wait(0.1)
+        -- Wait until tool is actually equipped
+        for i = 1, 30 do
+            if tool.Parent == char then break end
+            task.wait(0.05)
         end
 
-        -- Activate twice
-        if equippedTool == tool then
-            task.wait(0.2) -- give tool scripts time to initialize
-            tool:Activate()
-            task.wait(CLICK_DELAY)
-            tool:Activate()
+        -- Wait extra time to allow tool LocalScript to initialize
+        task.wait(0.3)
 
-            -- Unequip
-            task.wait(UNEQUIP_DELAY)
-            humanoid:UnequipTools()
-        else
-            warn("Tool failed to equip properly.")
-        end
+        -- Activate twice (simulate double-click)
+        tool:Activate()
+        task.wait(CLICK_DELAY)
+        tool:Activate()
+
+        -- Wait then unequip
+        task.wait(UNEQUIP_DELAY)
+        humanoid:UnequipTools()
     else
-        -- Fallback method if no humanoid
+        -- Fallback: manually parent and use it
         tool.Parent = char
-        task.wait(0.2)
+        task.wait(0.3)
         tool:Activate()
         task.wait(CLICK_DELAY)
         tool:Activate()
@@ -86,14 +76,14 @@ local function runNowOrLater()
         task.defer(handleCharacter, char)
     else
         player.CharacterAdded:Wait()
-        -- CharacterAdded is already connected below
+        -- CharacterAdded is connected below
     end
 end
 
--- Run once right now
+-- Run once now
 runNowOrLater()
 
--- And on every future respawn
+-- Re-run on every respawn
 player.CharacterAdded:Connect(function(char)
     task.defer(handleCharacter, char)
 end)
