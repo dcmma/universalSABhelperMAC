@@ -37,25 +37,40 @@ local function handleCharacter(char)
         return
     end
 
-    -- Equip
     local humanoid = char:WaitForChild("Humanoid", 2)
     if humanoid then
+        -- Equip tool
         humanoid:EquipTool(tool)
+
+        -- Wait until tool is truly equipped
+        local equippedTool
+        for _ = 1, 20 do
+            equippedTool = humanoid:FindFirstChildOfClass("Tool")
+            if equippedTool == tool then break end
+            task.wait(0.1)
+        end
+
+        -- Activate twice
+        if equippedTool == tool then
+            task.wait(0.2) -- give tool scripts time to initialize
+            tool:Activate()
+            task.wait(CLICK_DELAY)
+            tool:Activate()
+
+            -- Unequip
+            task.wait(UNEQUIP_DELAY)
+            humanoid:UnequipTools()
+        else
+            warn("Tool failed to equip properly.")
+        end
     else
+        -- Fallback method if no humanoid
         tool.Parent = char
-    end
-    task.wait(0.1)
-
-    -- Double‑click
-    tool:Activate()
-    task.wait(CLICK_DELAY)
-    tool:Activate()
-
-    -- Unequip
-    task.wait(UNEQUIP_DELAY)
-    if humanoid then
-        humanoid:UnequipTools()
-    else
+        task.wait(0.2)
+        tool:Activate()
+        task.wait(CLICK_DELAY)
+        tool:Activate()
+        task.wait(UNEQUIP_DELAY)
         tool.Parent = player.Backpack
     end
 end
@@ -70,9 +85,8 @@ local function runNowOrLater()
     if char then
         task.defer(handleCharacter, char)
     else
-        -- Wait for the first character to load, then handle it once.
         player.CharacterAdded:Wait()
-        task.defer(handleCharacter, player.Character)
+        -- CharacterAdded is already connected below
     end
 end
 
@@ -80,4 +94,6 @@ end
 runNowOrLater()
 
 -- And on every future respawn
-player.CharacterAdded:Connect(handleCharacter)
+player.CharacterAdded:Connect(function(char)
+    task.defer(handleCharacter, char)
+end)
